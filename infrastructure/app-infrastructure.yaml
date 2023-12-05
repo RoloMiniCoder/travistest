@@ -3,27 +3,63 @@ Parameters:
   KeyName:
     Type: "AWS::EC2::KeyPair::KeyName"
     Description: "EC2 Key Pair to enable SSH access to the instance"
+
 Resources:
   AppVPC:
     Type: "AWS::EC2::VPC"
     Properties:
-      CidrBlock: "10.0.0.0/16"  # Adjust the CIDR block for your VPC
+      CidrBlock: "10.0.0.0/16"
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: "Name"
           Value: "AppVPC"
 
-  AppSubnet:
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "InternetGateway"
+
+  AttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref AppVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId: !Ref AppVPC
-      CidrBlock: "10.0.0.0/24"  # Adjust the CIDR block for your subnet
-      AvailabilityZone: "eu-west-2a"  # Replace with the desired availability zone
-      MapPublicIpOnLaunch: true #for assigning instance public IPs on creation
+      CidrBlock: "10.0.0.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: "eu-west-2a"
       Tags:
         - Key: "Name"
-          Value: "AppSubnet"
+          Value: "PublicSubnet"
+
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref AppVPC
+      Tags:
+        - Key: "Name"
+          Value: "PublicRouteTable"
+
+  InternetRoute:
+    Type: "AWS::EC2::Route"
+    DependsOn: "AttachGateway"
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
 
   AppSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
@@ -34,7 +70,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: "0.0.0.0/0"  # Adjust the IP range as needed for SSH access
+          CidrIp: "0.0.0.0/0"
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
@@ -43,33 +79,59 @@ Resources:
   AppInstance:
     Type: "AWS::EC2::Instance"
     Properties:
-      ImageId: "ami-0cfd0973db26b893b"  # Replace with the AMI ID of Amazon Linux 2 in your region
+      ImageId: "ami-0cfd0973db26b893b"
       InstanceType: "t2.micro"
       KeyName: !Ref "KeyName"
       SecurityGroupIds:
         - !GetAtt AppSecurityGroup.GroupId
-        # - !Ref AppSecurityGroup  # Reference to the AppSecurityGroup
-      SubnetId: !Ref AppSubnet  # Reference to the AppSubnet
+      SubnetId: !Ref PublicSubnet
       Tags:
         - Key: "Name"
           Value: "AppInstance"
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # Update the system
-          sudo yum update -y
-
-          # Install Java Development Kit (JDK)
-          sudo amazon-linux-extras install java-openjdk11 -y
-
-          # Install Apache Tomcat
-          sudo yum install tomcat tomcat-webapps -y
-
-          # Start Tomcat service
-          sudo systemctl start tomcat
-          sudo systemctl enable tomcat
+          sudo dnf update -y
+          sudo dnf install java-11-amazon-corretto-devel -y
+          
+          cd /opt
+          wget https://dlcdn.apache.org/tomcat/tomcat-8/v8.5.96/bin/apache-tomcat-8.5.96.tar.gz
+          tar -zvxf apache-tomcat-8.5.96.tar.gz
+          rm -rf apache-tomcat-8.5.96.tar.gz
+          groupadd tomcat
+          useradd -s /sbin/nologin -g tomcat -d /opt/apache-tomcat-8.5.96 tomcat
+          chown -R tomcat.tomcat /opt/apache-tomcat-8.5.96
+          
+          cat <<EOF > /etc/systemd/system/tomcat.service
+          # Systemd unit file for tomcat
+          [Unit]
+          Description=Apache Tomcat Web Application Container
+          After=syslog.target network.target
+          
+          [Service]
+          Type=forking
+          User=tomcat
+          Group=tomcat
+          
+          Environment=JAVA_HOME=/usr/lib/jvm/jre
+          Environment=CATALINA_PID=/opt/apache-tomcat-8.5.96/temp/tomcat.pid
+          Environment=CATALINA_HOME=/opt/apache-tomcat-8.5.96
+          Environment=CATALINA_BASE=/opt/apache-tomcat-8.5.96
+          Environment=CATALINA_OPTS=
+          Environment="JAVA_OPTS=-Dfile.encoding=UTF-8 -Dnet.sf.ehcache.skipUpdateCheck=true
+          
+          ExecStart=/opt/apache-tomcat-8.5.96/bin/startup.sh
+          ExecStop=/bin/kill -15 $MAINPID
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          systemctl daemon-reload
+          systemctl enable tomcat.service
+          systemctl start tomcat.service
 
 Outputs:
-  AppInstanceIP:
+  AppInstancePublicIP:
     Description: "Public IP address of the EC2 instance"
-    Value: !GetAtt AppInstance.PublicIp  # Use PublicDnsName if you prefer the DNS name
+    Value: !GetAtt AppInstance.PublicIp
