@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  KeyName:
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Description: "EC2 Key Pair to enable SSH access to the instance"
+Resources:
+  AppVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"  # Adjust the CIDR block for your VPC
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value: "AppVPC"
+
+  AppSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref AppVPC
+      CidrBlock: "10.0.0.0/24"  # Adjust the CIDR block for your subnet
+      AvailabilityZone: "eu-west-2a"  # Replace with the desired availability zone
+      MapPublicIpOnLaunch: true #for assigning instance public IPs on creation
+      Tags:
+        - Key: "Name"
+          Value: "AppSubnet"
+
+  AppSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security group for the AppInstance"
+      VpcId: !Ref AppVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: "0.0.0.0/0"  # Adjust the IP range as needed for SSH access
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: "0.0.0.0/0"
+
+  AppInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-0cfd0973db26b893b"  # Replace with the AMI ID of Amazon Linux 2 in your region
+      InstanceType: "t2.micro"
+      KeyName: !Ref "KeyName"
+      SecurityGroupIds:
+        - !GetAtt AppSecurityGroup.GroupId
+        # - !Ref AppSecurityGroup  # Reference to the AppSecurityGroup
+      SubnetId: !Ref AppSubnet  # Reference to the AppSubnet
+      Tags:
+        - Key: "Name"
+          Value: "AppInstance"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update the system
+          sudo yum update -y
+
+          # Install Java Development Kit (JDK)
+          sudo amazon-linux-extras install java-openjdk11 -y
+
+          # Install Apache Tomcat
+          sudo yum install tomcat tomcat-webapps -y
+
+          # Start Tomcat service
+          sudo systemctl start tomcat
+          sudo systemctl enable tomcat
+
+Outputs:
+  AppInstanceIP:
+    Description: "Public IP address of the EC2 instance"
+    Value: !GetAtt AppInstance.PublicIp  # Use PublicDnsName if you prefer the DNS name
