@@ -157,7 +157,7 @@
 
     <build>
 
-        <finalName>Java Bank</finalName>
+        <finalName>java-bank</finalName>
 
         <plugins>
             <plugin>
