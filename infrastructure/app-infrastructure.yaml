@@ -99,6 +99,7 @@ Resources:
           tar -zvxf apache-tomcat-8.5.96.tar.gz
           rm -rf apache-tomcat-8.5.96.tar.gz
           groupadd tomcat
+          sudo usermod -aG tomcat ec2-user
           useradd -s /sbin/nologin -g tomcat -d /opt/apache-tomcat-8.5.96 tomcat
           chown -R tomcat.tomcat /opt/apache-tomcat-8.5.96
           sudo chmod -R g+w /opt/apache-tomcat-8.5.96
