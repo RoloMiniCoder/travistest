@@ -101,7 +101,7 @@ Resources:
           groupadd tomcat
           useradd -s /sbin/nologin -g tomcat -d /opt/apache-tomcat-8.5.96 tomcat
           chown -R tomcat.tomcat /opt/apache-tomcat-8.5.96
-          sudo chmod -R g+w /opt/opt/apache-tomcat-8.5.96
+          sudo chmod -R g+w /opt/apache-tomcat-8.5.96
           
           cat <<EOF > /etc/systemd/system/tomcat.service
           # Systemd unit file for tomcat
