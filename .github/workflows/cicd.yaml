@@ -41,6 +41,9 @@ jobs:
 
           # Change ownership on the remote EC2 instance using the SSH key
           ssh -o StrictHostKeyChecking=no -i ssh_key "$EC2_USERNAME@$EC2_SERVER" "sudo chown -R tomcat:tomcat $TARGET_DIRECTORY"
+          
+          # Restart tomcat server
+          ssh -o StrictHostKeyChecking=no -i ssh_key "$EC2_USERNAME@$EC2_SERVER" "sudo systemctl restart tomcat"
 
       - name: Cleanup SSH key
         run: rm ssh_key  # Clean up the temporary SSH key fileƒ
