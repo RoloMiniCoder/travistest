@@ -33,7 +33,7 @@ jobs:
           EC2_USERNAME="${{ secrets.EC2_USERNAME }}"
           
           # Create an SSH key file
-          echo "$SSH_PRIVATE_KEY" > ssh_key
+          echo "${{ secrets.EC2_USERNAME }}" > ssh_key
           chmod 600 ssh_key
 
           # Copy the artifact to the remote EC2 instance using the SSH key
