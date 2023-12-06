@@ -74,7 +74,7 @@ public class AccountServiceImpl implements AccountService {
 
         for (Account a : customer.getAccounts()) {
             if (a.getId().equals(id)) {
-                a.credit(amount + 400);
+                a.credit(amount);
             }
         }
 
