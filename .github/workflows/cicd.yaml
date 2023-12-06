@@ -42,6 +42,9 @@ jobs:
           # Change ownership on the remote EC2 instance using the SSH key
           ssh -o StrictHostKeyChecking=no -i ssh_key "$EC2_USERNAME@$EC2_SERVER" "sudo chown -R tomcat:tomcat $TARGET_DIRECTORY"
           
+          # Make sure group has write permissions for future deployments
+          ssh -o StrictHostKeyChecking=no -i ssh_key "$EC2_USERNAME@$EC2_SERVER" "sudo chmod g+w $TARGET_DIRECTORY/java-bank.war"
+          
           # Restart tomcat server
           ssh -o StrictHostKeyChecking=no -i ssh_key "$EC2_USERNAME@$EC2_SERVER" "sudo systemctl restart tomcat"
 
